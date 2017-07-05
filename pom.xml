@@ -390,6 +390,16 @@ under the License.
           </execution>
         </executions>
       </plugin>
+
+      <!-- Maven Command Line Wrapper -->
+      <plugin>
+        <groupId>com.rimerosolutions.maven.plugins</groupId>
+        <artifactId>wrapper-maven-plugin</artifactId>
+        <version>0.0.5</version>
+        <configuration>
+          <mavenVersion>3.3.9</mavenVersion>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 </project>
