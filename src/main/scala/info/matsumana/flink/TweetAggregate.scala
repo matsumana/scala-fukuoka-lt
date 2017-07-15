@@ -18,7 +18,7 @@ object TweetAggregate {
 
   val TWITTER_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss Z uuuu")
   val OUTPUT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu/MM/dd HH:mm:ss")
-  val DELETED_TWEET_PATTERN = Pattern.compile("^\\{\"delete\":\\{")
+  val DELETED_TWEET_PATTERN = Pattern.compile("""^\{"delete":\{""")
   val TARGET_TWEET_PATTERN = Pattern.compile("^.*[\u3040-\u3096]+.*$")
 
   val tweetReader = new ObjectMapper().reader.forType(classOf[util.HashMap[String, Object]])
