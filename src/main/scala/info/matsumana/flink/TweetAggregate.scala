@@ -24,7 +24,6 @@ object TweetAggregate {
   val tweetReader = new ObjectMapper().reader.forType(classOf[util.HashMap[String, Object]])
 
   def main(args: Array[String]): Unit = {
-
     val params = ParameterTool.fromPropertiesFile(args(0))
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
@@ -50,54 +49,46 @@ object TweetAggregate {
       kafkaProps)
 
     sourceStream
-      .filter(new FilterDeletedTweet)
-      .map(new ConvertToMap)
-      .filter(new FilterTargetTween)
-      .map(new MapTweet)
+      .filter(new FilterFunction[String] {
+        override def filter(json: String): Boolean = {
+          !DELETED_TWEET_PATTERN.matcher(json).matches()
+        }
+      })
+      .map(new MapFunction[String, util.HashMap[String, Object]] {
+        override def map(json: String): util.HashMap[String, Object] = {
+          tweetReader.readValue(json)
+        }
+      })
+      .filter(new FilterFunction[util.HashMap[String, Object]] {
+        override def filter(map: util.HashMap[String, Object]): Boolean = {
+          val text = map.get("text")
+          text != null && TARGET_TWEET_PATTERN.matcher(String.valueOf(text)).matches()
+          // TODO ハッシュタグがいっぱい付いてるツイートはスパムなので削除する
+        }
+      })
+      .map(new MapFunction[util.HashMap[String, Object], String] {
+        override def map(map: util.HashMap[String, Object]): String = {
+          val createdAt = String.valueOf(map.get("created_at"))
+          val timestamp = convertTwitterTimestamp(createdAt)
+          val text = String.valueOf(map.get("text"))
+          val userAny: Any = map.get("user")
+          val user = userAny.asInstanceOf[util.HashMap[String, Object]]
+          val screenName = user.get("screen_name")
+          val name = user.get("name")
+
+          s"""{"created_at": "$timestamp", "screen_name": "$screenName", "name": "$name", "text": "$text"}"""
+        }
+      })
       .addSink(sink)
 
     env.execute("TweetAggregate")
   }
 
   def convertTwitterTimestamp(createdAt: String): String = {
-    val offsetDateTime = OffsetDateTime.parse(createdAt, TweetAggregate.TWITTER_DATE_TIME_FORMATTER)
+    val offsetDateTime = OffsetDateTime.parse(createdAt, TWITTER_DATE_TIME_FORMATTER)
     offsetDateTime
       .atZoneSameInstant(ZoneId.of("Asia/Tokyo"))
       .toLocalDateTime
-      .format(TweetAggregate.OUTPUT_DATE_TIME_FORMATTER)
-  }
-}
-
-class FilterDeletedTweet extends FilterFunction[String] {
-  override def filter(json: String): Boolean = {
-    !TweetAggregate.DELETED_TWEET_PATTERN.matcher(json).matches()
-  }
-}
-
-class ConvertToMap extends MapFunction[String, util.HashMap[String, Object]] {
-  override def map(json: String): util.HashMap[String, Object] = {
-    TweetAggregate.tweetReader.readValue(json)
-  }
-}
-
-class FilterTargetTween extends FilterFunction[util.HashMap[String, Object]] {
-  override def filter(map: util.HashMap[String, Object]): Boolean = {
-    val text = map.get("text")
-    text != null && TweetAggregate.TARGET_TWEET_PATTERN.matcher(String.valueOf(text)).matches()
-    // TODO ハッシュタグがいっぱい付いてるツイートはスパムなので削除する
-  }
-}
-
-class MapTweet extends MapFunction[util.HashMap[String, Object], String] {
-  override def map(map: util.HashMap[String, Object]): String = {
-    val createdAt = String.valueOf(map.get("created_at"))
-    val timestamp = TweetAggregate.convertTwitterTimestamp(createdAt)
-    val text = String.valueOf(map.get("text"))
-    val userAny: Any = map.get("user")
-    val user = userAny.asInstanceOf[util.HashMap[String, Object]]
-    val screenName = user.get("screen_name")
-    val name = user.get("name")
-
-    s"""{"created_at": "$timestamp", "screen_name": "$screenName", "name": "$name", "text": "$text"}"""
+      .format(OUTPUT_DATE_TIME_FORMATTER)
   }
 }
