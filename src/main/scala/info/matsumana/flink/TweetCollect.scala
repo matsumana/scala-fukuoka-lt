@@ -7,9 +7,8 @@ import java.util.Properties
 import java.util.regex.Pattern
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.apache.flink.api.common.functions.{FilterFunction, MapFunction}
 import org.apache.flink.api.java.utils.ParameterTool
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment
+import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010
 import org.apache.flink.streaming.connectors.twitter.TwitterSource
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema
@@ -21,7 +20,7 @@ object TweetCollect {
   val DELETED_TWEET_PATTERN = Pattern.compile("""^\{"delete":\{""")
   val TARGET_TWEET_PATTERN = Pattern.compile("^.*[\u3040-\u3096]+.*$")
 
-  val tweetReader = new ObjectMapper().reader.forType(classOf[util.HashMap[String, Object]])
+  val mapper = new ObjectMapper()
 
   def main(args: Array[String]): Unit = {
     val params = ParameterTool.fromPropertiesFile(args(0))
@@ -47,35 +46,23 @@ object TweetCollect {
       kafkaProps)
 
     sourceStream
-      .filter(new FilterFunction[String] {
-        override def filter(json: String): Boolean = {
-          !DELETED_TWEET_PATTERN.matcher(json).matches()
-        }
+      .filter(!DELETED_TWEET_PATTERN.matcher(_).matches())
+      .map(mapper.readValue(_, classOf[util.HashMap[String, Object]]))
+      .filter(m => {
+        val text = m.get("text")
+        text != null && TARGET_TWEET_PATTERN.matcher(String.valueOf(text)).matches()
+        // TODO ハッシュタグがいっぱい付いてるツイートはスパムなので削除する
       })
-      .map(new MapFunction[String, util.HashMap[String, Object]] {
-        override def map(json: String): util.HashMap[String, Object] = {
-          tweetReader.readValue(json)
-        }
-      })
-      .filter(new FilterFunction[util.HashMap[String, Object]] {
-        override def filter(map: util.HashMap[String, Object]): Boolean = {
-          val text = map.get("text")
-          text != null && TARGET_TWEET_PATTERN.matcher(String.valueOf(text)).matches()
-          // TODO ハッシュタグがいっぱい付いてるツイートはスパムなので削除する
-        }
-      })
-      .map(new MapFunction[util.HashMap[String, Object], String] {
-        override def map(map: util.HashMap[String, Object]): String = {
-          val createdAt = String.valueOf(map.get("created_at"))
-          val timestamp = convertTwitterTimestamp(createdAt)
-          val text = String.valueOf(map.get("text"))
-          val userAny: Any = map.get("user")
-          val user = userAny.asInstanceOf[util.HashMap[String, Object]]
-          val screenName = user.get("screen_name")
-          val name = user.get("name")
+      .map(m => {
+        val createdAt = String.valueOf(m.get("created_at"))
+        val timestamp = convertTwitterTimestamp(createdAt)
+        val text = String.valueOf(m.get("text"))
+        val userAny: Any = m.get("user")
+        val user = userAny.asInstanceOf[util.HashMap[String, Object]]
+        val screenName = user.get("screen_name")
+        val name = user.get("name")
 
-          s"""{"created_at": "$timestamp", "screen_name": "$screenName", "name": "$name", "text": "$text"}"""
-        }
+        s"""{"created_at": "$timestamp", "screen_name": "$screenName", "name": "$name", "text": "$text"}"""
       })
       .addSink(sink)
 
