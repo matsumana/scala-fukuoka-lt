@@ -40,8 +40,6 @@ object TweetCollect {
     // sink (kafka)
     val kafkaProps = new Properties()
     kafkaProps.setProperty("bootstrap.servers", params.get("bootstrap.servers", "localhost:9092"))
-    kafkaProps.setProperty("auto.offset.reset", params.get("auto.offset.reset", "latest"))
-    kafkaProps.setProperty("group.id", params.get("group.id", "scala-fukuoka-2017"))
     val topic = params.get("topic", "twitter")
     val sink = new FlinkKafkaProducer010[String](
       topic,
