@@ -1,4 +1,4 @@
-package info.matsumana.flink.demo
+package info.matsumana.flink
 
 import org.junit.runner.RunWith
 import org.scalatest._

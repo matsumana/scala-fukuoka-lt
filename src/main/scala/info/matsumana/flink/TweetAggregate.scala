@@ -1,4 +1,4 @@
-package info.matsumana.flink.demo
+package info.matsumana.flink
 
 import java.time.format.DateTimeFormatter
 import java.time.{OffsetDateTime, ZoneId}
