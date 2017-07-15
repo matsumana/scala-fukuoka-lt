@@ -14,7 +14,7 @@ import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer010
 import org.apache.flink.streaming.connectors.twitter.TwitterSource
 import org.apache.flink.streaming.util.serialization.SimpleStringSchema
 
-object TweetAggregate {
+object TweetCollect {
 
   val TWITTER_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss Z uuuu")
   val OUTPUT_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu/MM/dd HH:mm:ss")
@@ -81,7 +81,7 @@ object TweetAggregate {
       })
       .addSink(sink)
 
-    env.execute("TweetAggregate")
+    env.execute("TweetCollect")
   }
 
   def convertTwitterTimestamp(createdAt: String): String = {
