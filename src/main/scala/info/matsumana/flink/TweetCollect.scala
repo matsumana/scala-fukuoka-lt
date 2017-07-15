@@ -45,6 +45,7 @@ object TweetCollect {
       new SimpleStringSchema,
       kafkaProps)
 
+    // stream processing
     sourceStream
       .filter(!DELETED_TWEET_PATTERN.matcher(_).matches())
       .map(mapper.readValue(_, classOf[util.HashMap[String, Object]]))
