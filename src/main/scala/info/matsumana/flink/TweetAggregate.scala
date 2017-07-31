@@ -91,18 +91,15 @@ object TweetAggregate {
         val screenName = t._2
         val name = t._3
         val text = t._4
-        val count = 1
-
-        // TODO 単純にwindow内の件数をカウントしたいだけなので、シンプルなメソッドがあるはず
-        //        (timestamp, screenName, name, text, count)
-        (timestamp, screenName, name, text, count, 1)
+        (timestamp, screenName, name, text, 1)
       })
 
     // to kafka
+    // (今回はTweet数をカウントするだけなので、1パーティションで処理する)
     val streamKafka = stream
-      .keyBy(5) // timestamp  // TODO 単純にwindow内の件数をカウントしたいだけなので、シンプルなメソッドがあるはず
+      .keyBy(4) // partition by `count` field
       .timeWindow(Time.of(TIME_WINDOW, TimeUnit.SECONDS))
-      .sum(4) // count
+      .sum(4) // sum by `count` field
       .map(t => ceil(t._5.toDouble / TIME_WINDOW).toInt) // convert to 'per second'
       .map(count => s"""{"count": $count}""")
       .addSink(sinkKafka)
@@ -111,10 +108,10 @@ object TweetAggregate {
     val streamElasticsearch = stream
       .map(t => {
         val encoder = JsonStringEncoder.getInstance
-        val escapedText = String.valueOf(encoder.quoteAsString(t._4))
-        val escapedName = String.valueOf(encoder.quoteAsString(t._3))
+        val name = String.valueOf(encoder.quoteAsString(t._3))
+        val text = String.valueOf(encoder.quoteAsString(t._4))
 
-        s"""{"created_at": "${t._1}", "screen_name": "${t._2}", "name": "$escapedName", "text": "$escapedText"}"""
+        s"""{"created_at": "${t._1}", "screen_name": "${t._2}", "name": "$name", "text": "$text"}"""
       })
       .addSink(sinkElasticsearch)
 

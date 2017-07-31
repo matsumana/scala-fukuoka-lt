@@ -13,6 +13,8 @@ import org.apache.flink.streaming.util.serialization.SimpleStringSchema
 object TweetCollect {
 
   val DELETED_TWEET_PATTERN = Pattern.compile("""^\{"delete":\{""")
+
+  // ひらがな
   val TARGET_TWEET_PATTERN = Pattern.compile("^.*[\u3040-\u3096]+.*$")
 
   val mapper = new ObjectMapper()
@@ -47,7 +49,6 @@ object TweetCollect {
       .filter(m => {
         val text = m.get("text")
         text != null && TARGET_TWEET_PATTERN.matcher(String.valueOf(text)).matches()
-        // TODO ハッシュタグがいっぱい付いてるツイートはスパムなので削除する
       })
       .map(mapper.writeValueAsString(_))
       .addSink(sink)
